@@ -9,7 +9,7 @@
     if (html != null) el.innerHTML = html;
     return el;
   };
-  const plain = (html) => String(html).replace(/<div class="dots">.*<\/div>/s, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const plain = (html) => String(html).replace(/<div class="dots">[\s\S]*<\/div>/, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const speakify = (s) => s.replace(/·/g, " mal ").replace(/ : /g, " geteilt durch ").replace(/−/g, " minus ").replace(/≈/g, " ungefähr ").replace(/\?/g, "?");
 
   /* ----------------------------------------------------------- keypad */
@@ -358,7 +358,7 @@
         this.expected = parts.reduce((x, y) => x + y, 0);
         if (parts.length === 0 || (parts.length === 1 && !this.carry && digits.length === 1)) {
           // nothing to add in this column: fill automatically
-          this.result.unshift(String(digits[0] ?? ""));
+          this.result.unshift(digits.length ? String(digits[0]) : "");
           if (this.result[0] === "") this.result.shift();
           this.si++; this.draw(); this.showStep(); return;
         }

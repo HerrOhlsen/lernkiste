@@ -23,6 +23,14 @@
   <button type="button" data-s="sammlung"><span>🎒</span>Sammlung</button>
   <button type="button" data-s="ich"><span>⭐</span>Ich</button>
 </nav>
+<script>
+window.addEventListener("error", function (e) {
+  var box = document.createElement("div");
+  box.style.cssText = "position:fixed;left:8px;right:8px;bottom:90px;z-index:99;background:#3d1520;color:#fff;padding:12px;border-radius:12px;font:14px system-ui";
+  box.textContent = "Fehler: " + (e.message || e.error) + " (" + (e.filename || "").split("/").pop() + ":" + e.lineno + ") " + navigator.userAgent.slice(0, 120);
+  document.body.appendChild(box);
+});
+</script>
 <script src="js/util.js"></script>
 <script src="content/mathe/multiplizieren.js"></script>
 <script src="js/engine.js"></script>
