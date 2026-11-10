@@ -29,8 +29,31 @@ die sich mit `LK.courses.push({...})` registriert, und in `index.html` per
 Audios), `titel`, `intro` (`html` + `text`) und `make()`, das ein Array von
 Aufgaben zurückgibt. Aufgabentypen stehen in `js/engine.js`.
 
-Die App zeigt bisher nur `LK.courses[0]`. Beim zweiten Kurs wird eine
-Kursauswahl im Pfad nötig.
+Die App zeigt bisher nur `LK.courses[0]` im Mathe-Pfad.
+
+## Englisch-Vokabeln (js/vokabeln.js)
+
+Eigener Reiter „Englisch“: Spaced Repetition wie in VocabFlow (vereinfachtes
+FSRS, Karteikarte umdrehen, 4 Bewertungen), dazu beim Wiederholen gemischte
+Übungen (hören und Bedeutung wählen, Bild wählen, Englisch tippen, Lückensatz).
+Die Intervalle werden als 5 Kisten angezeigt. Lernsets (Units) schaltet das
+Kind selbst ein, neue Wörter kommen in Buchreihenfolge.
+
+**Die Vokabeln sind Schulbuch-Material und dürfen nie im Klartext ins Repo.**
+- Quelle liegt privat in `../englisch-quelle/` (OneDrive, kein Git):
+  `vokabeln.json`, `medien/audio`, `medien/bilder`, `passwort.txt`, `schluessel.json`.
+- `tools/make_vocab_audio.py` (Gemini TTS, en-GB, mit Rückprüfung) und
+  `tools/make_vocab_images.py` (Gemini-Bilder nach `bildPrompt`) schreiben dorthin.
+- `tools/build_vocab.py` verschlüsselt alles (AES-GCM, Schlüssel per PBKDF2
+  aus dem Passwort) nach `vocab/`. Nur dieser Ordner wird committet.
+- Medien-Dateinamen sind HMACs, nichts verrät das Wort.
+- Neue Vokabeln: Fotos abtippen, in `vokabeln.json` ergänzen (feste IDs
+  `<set>:<slug>`, nie ändern, sonst ist der Lernstand des Wortes weg),
+  Audio und Bilder erzeugen, `build_vocab.py`, committen.
+
+Lernstand liegt unter `state.vocab` im selben `localStorage`-Schlüssel und
+reist mit Export/Import. Der abgeleitete Schlüssel liegt separat unter
+`lernkiste-schluessel` (nicht im Export).
 
 ## Speicher
 

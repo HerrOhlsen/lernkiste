@@ -11,6 +11,11 @@ Punkt vor Strich, Rechengesetze und Rechentricks, Überschlag, schriftliches
 Multiplizieren, Sachaufgaben). Weitere Fächer und Themen kommen als eigene
 Dateien unter `content/` dazu.
 
+Dazu ein Englisch-Vokabeltrainer mit Spaced Repetition (Karteikarten,
+Hören, Bilder, Tippen). Die Vokabeln stammen aus einem Schulbuch und liegen
+deshalb nur verschlüsselt im Repo (`vocab/`); die App fragt einmal nach einem
+Passwort. Ohne Passwort ist der Englisch-Teil leer.
+
 ## Wie es funktioniert
 
 - Jede Lektion erzeugt ihre Aufgaben zufällig neu (`make()`), kann also beliebig

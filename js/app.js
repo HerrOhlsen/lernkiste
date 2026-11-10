@@ -21,13 +21,15 @@
   let state;
   const load = () => { try { state = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE) || "{}")); state.settings = Object.assign({}, DEFAULTS.settings, state.settings || {}); } catch (e) { state = JSON.parse(JSON.stringify(DEFAULTS)); } };
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
-  const today = () => new Date().toISOString().slice(0, 10);
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  const ymd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const today = () => ymd(new Date());
   const level = (xp) => Math.floor(Math.sqrt(xp / 50)) + 1;
   const xpForLevel = (l) => (l - 1) * (l - 1) * 50;
   const streak = () => {
     const days = new Set(state.days); let n = 0; const d = new Date();
     if (!days.has(today())) d.setDate(d.getDate() - 1);
-    while (days.has(d.toISOString().slice(0, 10))) { n++; d.setDate(d.getDate() - 1); }
+    while (days.has(ymd(d))) { n++; d.setDate(d.getDate() - 1); }
     return n;
   };
 
@@ -87,8 +89,9 @@
 
   const render = (arg) => {
     nav.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.s === screen));
-    nav.hidden = screen === "lesson";
-    if (screen === "pfad") renderPath();
+    nav.hidden = screen === "lesson" || (LK.fullscreen || []).includes(screen);
+    if (LK.screens && LK.screens[screen]) LK.screens[screen](arg);
+    else if (screen === "pfad") renderPath();
     else if (screen === "sammlung") renderCollection();
     else if (screen === "ich") renderMe();
     else if (screen === "lesson") renderLesson(arg);
@@ -189,48 +192,56 @@
     const finish = () => {
       stopSpeech();
       const tier = mistakes === 0 ? "gold" : mistakes <= 2 ? "silber" : "bronze";
-      const shells = { gold: rnd(40, 60), silber: rnd(20, 35), bronze: rnd(8, 15) }[tier];
-      const stickerChance = { gold: 1, silber: 0.6, bronze: 0.3 }[tier];
-      let sticker = null;
-      if (Math.random() < stickerChance) {
-        const pool = STICKERS.filter((s) => tier === "gold" ? true : tier === "silber" ? s.rarity <= 2 : s.rarity === 1);
-        const missing = pool.filter((s) => !state.stickers[s.id]);
-        sticker = missing.length && Math.random() < 0.8 ? pick(missing) : pick(pool);
-      }
-      state.xp += xpGained; state.shells += shells; state.chests++;
-      if (sticker) state.stickers[sticker.id] = (state.stickers[sticker.id] || 0) + 1;
+      state.xp += xpGained;
       const rec = state.lessons[lesson.id] || { count: 0, best: 99 };
       rec.count++; rec.best = Math.min(rec.best, mistakes); rec.last = today();
       state.lessons[lesson.id] = rec;
-      if (!state.days.includes(today())) state.days.push(today());
-      save();
-      stage.innerHTML = "";
-      const card = h("div", "chestcard", `
-        <h2>Lektion geschafft!</h2>
-        <div class="summary">${firstTry} von ${tasks.length} direkt richtig<br>+${xpGained} XP</div>
-        <div class="chest ${tier}"><div class="lid"></div><div class="box"></div><div class="glow"></div></div>
-        <div class="chestname">${tier === "gold" ? "Goldene Kiste" : tier === "silber" ? "Silberne Kiste" : "Bronze-Kiste"}</div>
-        <button class="primary open" type="button">Kiste öffnen</button>
-        <div class="loot" hidden></div>
-        <button class="primary back" type="button" hidden>Zurück zum Pfad</button>`);
-      stage.appendChild(card);
-      $(".open", card).addEventListener("click", () => {
-        LK.sfx.chest();
-        $(".chest", card).classList.add("opened");
-        $(".open", card).hidden = true;
-        confetti(card);
-        setTimeout(() => {
-          const loot = $(".loot", card); loot.hidden = false;
-          loot.innerHTML = `<div class="lootitem"><span class="lemoji">🐚</span><span>+${shells} Muscheln</span></div>` +
-            (sticker ? `<div class="lootitem sticker r${sticker.rarity}"><span class="lemoji">${sticker.emoji}</span><span>Sticker: ${esc(sticker.name)}<small>${RARITY[sticker.rarity]}${state.stickers[sticker.id] > 1 ? ", schon " + state.stickers[sticker.id] + "×" : ", neu!"}</small></span></div>` : `<div class="lootitem dim"><span class="lemoji">🎟️</span><span>Kein Sticker diesmal<small>Goldene Kisten haben immer einen</small></span></div>`);
-          $(".back", card).hidden = false;
-          speak(`Du hast ${shells} Muscheln bekommen${sticker ? " und den Sticker " + sticker.name : ""}.`);
-        }, 700);
-      });
-      $(".back", card).addEventListener("click", () => go("pfad"));
+      showChest(stage, { tier, title: "Lektion geschafft!", summary: `${firstTry} von ${tasks.length} direkt richtig<br>+${xpGained} XP`, onBack: () => go("pfad"), backLabel: "Zurück zum Pfad" });
     };
     intro();
   };
+  /* --------------------------------------------------------------- chest */
+  /* Award shells and maybe a sticker for one finished round, then show the
+     chest. Shared by math lessons and vocabulary sessions. */
+  const showChest = (stage, { tier, title, summary, onBack, backLabel }) => {
+    const shells = { gold: rnd(40, 60), silber: rnd(20, 35), bronze: rnd(8, 15) }[tier];
+    const stickerChance = { gold: 1, silber: 0.6, bronze: 0.3 }[tier];
+    let sticker = null;
+    if (Math.random() < stickerChance) {
+      const pool = STICKERS.filter((s) => tier === "gold" ? true : tier === "silber" ? s.rarity <= 2 : s.rarity === 1);
+      const missing = pool.filter((s) => !state.stickers[s.id]);
+      sticker = missing.length && Math.random() < 0.8 ? pick(missing) : pick(pool);
+    }
+    state.shells += shells; state.chests++;
+    if (sticker) state.stickers[sticker.id] = (state.stickers[sticker.id] || 0) + 1;
+    if (!state.days.includes(today())) state.days.push(today());
+    save();
+    stage.innerHTML = "";
+    const card = h("div", "chestcard", `
+      <h2>${esc(title)}</h2>
+      <div class="summary">${summary}</div>
+      <div class="chest ${tier}"><div class="lid"></div><div class="box"></div><div class="glow"></div></div>
+      <div class="chestname">${tier === "gold" ? "Goldene Kiste" : tier === "silber" ? "Silberne Kiste" : "Bronze-Kiste"}</div>
+      <button class="primary open" type="button">Kiste öffnen</button>
+      <div class="loot" hidden></div>
+      <button class="primary back" type="button" hidden>${esc(backLabel || "Weiter")}</button>`);
+    stage.appendChild(card);
+    $(".open", card).addEventListener("click", () => {
+      LK.sfx.chest();
+      $(".chest", card).classList.add("opened");
+      $(".open", card).hidden = true;
+      confetti(card);
+      setTimeout(() => {
+        const loot = $(".loot", card); loot.hidden = false;
+        loot.innerHTML = `<div class="lootitem"><span class="lemoji">🐚</span><span>+${shells} Muscheln</span></div>` +
+          (sticker ? `<div class="lootitem sticker r${sticker.rarity}"><span class="lemoji">${sticker.emoji}</span><span>Sticker: ${esc(sticker.name)}<small>${RARITY[sticker.rarity]}${state.stickers[sticker.id] > 1 ? ", schon " + state.stickers[sticker.id] + "×" : ", neu!"}</small></span></div>` : `<div class="lootitem dim"><span class="lemoji">🎟️</span><span>Kein Sticker diesmal<small>Goldene Kisten haben immer einen</small></span></div>`);
+        $(".back", card).hidden = false;
+        speak(`Du hast ${shells} Muscheln bekommen${sticker ? " und den Sticker " + sticker.name : ""}.`);
+      }, 700);
+    });
+    $(".back", card).addEventListener("click", onBack);
+  };
+
   const confetti = (root) => {
     const c = h("div", "confetti");
     for (let k = 0; k < 40; k++) { const p = h("i"); p.style.left = rnd(5, 95) + "%"; p.style.animationDelay = (Math.random() * 0.6) + "s"; p.style.background = pick(["#ffd166", "#59d49b", "#5ec8ff", "#ff7b9c", "#c89bff"]); c.appendChild(p); }
@@ -283,5 +294,8 @@
   };
 
   load();
+  /* Shared API for feature modules (e.g. js/vokabeln.js). */
+  LK.app = { get state() { return state; }, save, go, render, showChest, confetti, speak, stopSpeech, today, ymd, h, $, level };
+  if (LK.onAppReady) LK.onAppReady.forEach((f) => f(LK.app));
   render();
 })(window.LK);

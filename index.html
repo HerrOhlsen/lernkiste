@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#0b1a2b">
 <title>Lernkiste</title>
-<meta name="description" content="Lern-App mit Kisten, Stickern und kurzen Lektionen. Mathe Klasse 5: Mal und Geteilt.">
+<meta name="description" content="Lern-App mit Kisten, Stickern und kurzen Lektionen. Mathe Klasse 5 und Englisch-Vokabeln.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -19,7 +19,8 @@
 <body>
 <main id="app"></main>
 <nav id="nav">
-  <button type="button" data-s="pfad" class="on"><span>🗺️</span>Lernen</button>
+  <button type="button" data-s="pfad" class="on"><span>🗺️</span>Mathe</button>
+  <button type="button" data-s="vokabeln"><span>📚</span>Englisch</button>
   <button type="button" data-s="sammlung"><span>🎒</span>Sammlung</button>
   <button type="button" data-s="ich"><span>⭐</span>Ich</button>
 </nav>
@@ -34,6 +35,7 @@ window.addEventListener("error", function (e) {
 <script src="js/util.js"></script>
 <script src="content/mathe/multiplizieren.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/vokabeln.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
