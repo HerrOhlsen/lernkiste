@@ -321,3 +321,14 @@ h3{font-size:19px;font-weight:900;margin:0}
 .imgopts{grid-template-columns:1fr 1fr}
 .imgopt{padding:8px}
 .imgopt .oimg{width:100%;aspect-ratio:1;border-radius:12px;display:block;background:var(--sunken)}
+
+/* online backup on the "Ich" screen */
+.syncbox{background:var(--raised);border-radius:var(--r);padding:16px;margin:18px 0 30px;border:2px solid var(--line)}
+.syncbox p{margin:6px 0;color:var(--dim)}
+.syncbox .syncerr{color:var(--bad)}
+.synccode{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:.06em;text-align:center;background:var(--sunken);border-radius:12px;padding:12px;margin:8px 0;color:var(--accent);user-select:all;word-break:break-all}
+.syncwarn{position:fixed;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top));z-index:60;display:flex;gap:12px;align-items:center;
+  background:#3d1520;border:2px solid var(--bad);color:#fff;border-radius:16px;padding:12px 14px;font-size:16px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:480px;margin:0 auto}
+.syncwarn span{flex:1}
+.syncwarn button{flex:none;padding:10px 16px;border-radius:12px;background:var(--bad);color:#fff}
+.syncbox .syncerr{color:var(--bad);font-weight:800}

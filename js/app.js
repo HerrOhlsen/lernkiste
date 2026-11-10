@@ -20,7 +20,7 @@
   const DEFAULTS = { name: "", xp: 0, shells: 0, lessons: {}, stickers: {}, days: [], settings: { sound: true, autoSpeak: true, allOpen: false }, chests: 0 };
   let state;
   const load = () => { try { state = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE) || "{}")); state.settings = Object.assign({}, DEFAULTS.settings, state.settings || {}); } catch (e) { state = JSON.parse(JSON.stringify(DEFAULTS)); } };
-  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} if (LK.sync) LK.sync.schedule(); };
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   const ymd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const today = () => ymd(new Date());
@@ -290,7 +290,8 @@
     reset.addEventListener("click", () => { if (confirm("Wirklich alles löschen? XP, Sticker, alles.")) { localStorage.removeItem(STORE); load(); render(); } });
     sets.appendChild(nameBtn); sets.appendChild(exp); sets.appendChild(imp); sets.appendChild(reset);
     app.appendChild(sets);
-    app.appendChild(h("p", "note", "Der Fortschritt liegt nur auf diesem Gerät. Zum Wechseln aufs neue Handy: hier sichern, dort laden."));
+    if (LK.sync && LK.sync.enabled()) LK.sync.renderInto(app);
+    else app.appendChild(h("p", "note", "Der Fortschritt liegt nur auf diesem Gerät. Zum Wechseln aufs neue Handy: hier sichern, dort laden."));
   };
 
   load();
