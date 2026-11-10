@@ -19,7 +19,41 @@
   /* --------------------------------------------------------------- state */
   const DEFAULTS = { name: "", xp: 0, shells: 0, lessons: {}, stickers: {}, days: [], settings: { sound: true, autoSpeak: true, allOpen: false }, chests: 0 };
   let state;
-  const load = () => { try { state = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE) || "{}")); state.settings = Object.assign({}, DEFAULTS.settings, state.settings || {}); } catch (e) { state = JSON.parse(JSON.stringify(DEFAULTS)); } };
+  /* Keep only known fields with the expected types. Progress can come from a
+     file or the online backup, so nothing in it is trusted before it reaches
+     the screen. */
+  const num = (v, d) => (typeof v === "number" && isFinite(v) ? v : d || 0);
+  const isDate = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const ID = /^[a-z0-9:~_-]{1,80}$/;
+  const objOf = (o, fn) => { const out = {}; if (o && typeof o === "object" && !Array.isArray(o)) for (const k of Object.keys(o)) { if (ID.test(k)) { const v = fn(o[k]); if (v !== undefined) out[k] = v; } } return out; };
+  const sanitize = (raw) => {
+    const r = raw && typeof raw === "object" ? raw : {};
+    const s = JSON.parse(JSON.stringify(DEFAULTS));
+    s.name = typeof r.name === "string" ? r.name.slice(0, 20) : "";
+    s.xp = num(r.xp); s.shells = num(r.shells); s.chests = num(r.chests);
+    s.lessons = objOf(r.lessons, (v) => v && typeof v === "object" ? { count: num(v.count), best: num(v.best, 99), last: isDate(v.last) ? v.last : undefined } : undefined);
+    s.stickers = objOf(r.stickers, (v) => (typeof v === "number" && isFinite(v) ? v : undefined));
+    s.days = Array.isArray(r.days) ? r.days.filter(isDate) : [];
+    const st = r.settings || {};
+    for (const k of Object.keys(DEFAULTS.settings)) s.settings[k] = typeof st[k] === "boolean" ? st[k] : DEFAULTS.settings[k];
+    const v = r.vocab;
+    if (v && typeof v === "object") {
+      s.vocab = {
+        on: Array.isArray(v.on) ? v.on.filter((x) => typeof x === "string" && ID.test(x)) : [],
+        cards: objOf(v.cards, (c) => c && typeof c === "object" ? {
+          stability: num(c.stability), difficulty: num(c.difficulty, 5), repetitions: num(c.repetitions), interval: num(c.interval),
+          nextReview: isDate(c.nextReview) ? c.nextReview : null, lastReview: isDate(c.lastReview) ? c.lastReview : null,
+          lastRating: num(c.lastRating, null), lapses: num(c.lapses) } : undefined),
+        day: v.day && isDate(v.day.date) ? { date: v.day.date, neu: num(v.day.neu), wdh: num(v.day.wdh) } : { date: "", neu: 0, wdh: 0 },
+        autoplay: typeof v.autoplay === "boolean" ? v.autoplay : true,
+        mix: typeof v.mix === "boolean" ? v.mix : true,
+        neuProTag: [3, 5, 8, 10, 15].includes(v.neuProTag) ? v.neuProTag : 8,
+        runden: num(v.runden),
+      };
+    }
+    return s;
+  };
+  const load = () => { try { state = sanitize(JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) { state = JSON.parse(JSON.stringify(DEFAULTS)); } };
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} if (LK.sync) LK.sync.schedule(); };
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   const ymd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -285,7 +319,7 @@
     const exp = h("button", "ghost", "Fortschritt sichern (Datei)"); exp.type = "button";
     exp.addEventListener("click", () => { const blob = new Blob([JSON.stringify(state)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `lernkiste-${today()}.json`; a.click(); });
     const imp = h("label", "ghost", `Fortschritt laden <input type="file" accept="application/json" hidden>`);
-    $("input", imp).addEventListener("change", (e) => { const f = e.target.files[0]; if (!f) return; f.text().then((t) => { try { const s = JSON.parse(t); if (!("xp" in s)) throw 0; state = Object.assign({}, DEFAULTS, s); save(); render(); alert("Geladen."); } catch (err) { alert("Das war keine Lernkiste-Datei."); } }); });
+    $("input", imp).addEventListener("change", (e) => { const f = e.target.files[0]; if (!f) return; f.text().then((t) => { try { const s = JSON.parse(t); if (!s || !("xp" in s)) throw 0; state = sanitize(s); save(); render(); alert("Geladen."); } catch (err) { alert("Das war keine Lernkiste-Datei."); } }); });
     const reset = h("button", "ghost danger", "Alles zurücksetzen"); reset.type = "button";
     reset.addEventListener("click", () => { if (confirm("Wirklich alles löschen? XP, Sticker, alles.")) { localStorage.removeItem(STORE); load(); render(); } });
     sets.appendChild(nameBtn); sets.appendChild(exp); sets.appendChild(imp); sets.appendChild(reset);
