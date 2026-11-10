@@ -253,7 +253,7 @@
     const lv = A.level(A.state.xp);
     app.appendChild(h("header", "hero vhero", `
       <div class="greet">Englisch</div>
-      <div class="stats"><span title="Serie">🔥 ${streakDays()}</span><span title="Muscheln">🐚 ${LK.fmt(A.state.shells)}</span><span title="Level">⭐ Level ${lv}</span></div>`));
+      <div class="stats"><span title="Übungstage">📅 ${A.practiceDays()}</span><span title="Muscheln">🐚 ${LK.fmt(A.state.shells)}</span><span title="Level">⭐ Level ${lv}</span></div>`));
 
     // today
     const today = h("section", "vtoday");
@@ -321,13 +321,6 @@
     st.appendChild(lock);
     app.appendChild(st);
   };
-  const streakDays = () => {
-    const days = new Set(A.state.days); let n = 0; const d = new Date();
-    if (!days.has(A.today())) d.setDate(d.getDate() - 1);
-    while (days.has(A.ymd(d))) { n++; d.setDate(d.getDate() - 1); }
-    return n;
-  };
-
   /* word list of one set */
   const renderList = async ({ setId }) => {
     const app = appEl();

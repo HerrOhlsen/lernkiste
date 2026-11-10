@@ -55,6 +55,20 @@ Lernstand liegt unter `state.vocab` im selben `localStorage`-Schlüssel und
 reist mit Export/Import. Der abgeleitete Schlüssel liegt separat unter
 `lernkiste-schluessel` (nicht im Export).
 
+## Übungstage und Abzeichen
+
+Keine Serie (🔥), sondern Übungstage: `state.days` zählt jeden Tag mit fertiger
+Mathe-Lektion oder Vokabelarbeit, ein ausgelassener Tag setzt nichts zurück.
+Meilensteine in `MILESTONES` (app.js) mit wachsenden Abständen; erreichte
+stehen in `state.badges`, neue werden beim nächsten Bildschirm mit Nav gefeiert.
+Statistik, Abzeichen und Kalender stehen unter „Ich“.
+
+## Online-Sicherung (js/sync.js)
+
+Privates Supabase-Projekt (Free) mit `tools/supabase.sql`. Browser-Tests
+müssen `*.supabase.co` per Route abfangen, sonst landen Testzeilen in der
+echten Tabelle.
+
 ## Speicher
 
 `localStorage`-Schlüssel `lernkiste-v1`. Nur additiv erweitern, fehlende Felder

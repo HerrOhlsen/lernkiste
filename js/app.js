@@ -17,7 +17,7 @@
   const RARITY = { 1: "normal", 2: "selten", 3: "legendär" };
 
   /* --------------------------------------------------------------- state */
-  const DEFAULTS = { name: "", xp: 0, shells: 0, lessons: {}, stickers: {}, days: [], settings: { sound: true, autoSpeak: true, allOpen: false }, chests: 0 };
+  const DEFAULTS = { name: "", xp: 0, shells: 0, lessons: {}, stickers: {}, days: [], settings: { sound: true, autoSpeak: true, allOpen: false }, chests: 0, badges: [] };
   let state;
   /* Keep only known fields with the expected types. Progress can come from a
      file or the online backup, so nothing in it is trusted before it reaches
@@ -33,7 +33,8 @@
     s.xp = num(r.xp); s.shells = num(r.shells); s.chests = num(r.chests);
     s.lessons = objOf(r.lessons, (v) => v && typeof v === "object" ? { count: num(v.count), best: num(v.best, 99), last: isDate(v.last) ? v.last : undefined } : undefined);
     s.stickers = objOf(r.stickers, (v) => (typeof v === "number" && isFinite(v) ? v : undefined));
-    s.days = Array.isArray(r.days) ? r.days.filter(isDate) : [];
+    s.days = Array.isArray(r.days) ? [...new Set(r.days.filter(isDate))] : [];
+    s.badges = Array.isArray(r.badges) ? r.badges.filter((n) => typeof n === "number" && isFinite(n)) : [];
     const st = r.settings || {};
     for (const k of Object.keys(DEFAULTS.settings)) s.settings[k] = typeof st[k] === "boolean" ? st[k] : DEFAULTS.settings[k];
     const v = r.vocab;
@@ -60,12 +61,41 @@
   const today = () => ymd(new Date());
   const level = (xp) => Math.floor(Math.sqrt(xp / 50)) + 1;
   const xpForLevel = (l) => (l - 1) * (l - 1) * 50;
-  const streak = () => {
-    const days = new Set(state.days); let n = 0; const d = new Date();
-    if (!days.has(today())) d.setDate(d.getDate() - 1);
-    while (days.has(ymd(d))) { n++; d.setDate(d.getDate() - 1); }
-    return n;
+  /* ---------------------------------------------------------- milestones
+     Practice days count every day with a finished math lesson or vocabulary
+     work; a missed day never resets anything. Milestones are spaced so the
+     next one always feels close. */
+  const MILESTONES = (() => {
+    const base = [[3, "🌱", "Drei Tage"], [7, "🌿", "Eine Woche"], [14, "🌳", "Zwei Wochen"], [21, "⭐", "Drei Wochen"],
+      [30, "🏅", "Ein Monat"], [45, "🎖️", "Sechs Wochen"], [60, "🥉", "Zwei Monate"], [90, "🥈", "Drei Monate"],
+      [120, "🥇", "Vier Monate"], [150, "🏆", "Fünf Monate"], [200, "💎", "200 Tage"], [250, "🚀", "250 Tage"],
+      [300, "🌟", "300 Tage"], [365, "👑", "Ein ganzes Jahr"]];
+    const extra = ["🐬", "🐳", "🦈", "🐙", "🐉", "🛸", "🌋", "🪐"];
+    for (let n = 450, k = 0; n <= 3000; n += n < 1000 ? 100 : 150, k++) base.push([n, extra[k % extra.length], n + " Tage"]);
+    for (const [n, name] of [[730, "Zwei Jahre"], [1095, "Drei Jahre"], [1460, "Vier Jahre"]]) base.push([n, "👑", name]);
+    return base.sort((a, b) => a[0] - b[0]).map(([n, emoji, name]) => ({ n, emoji, name }));
+  })();
+  const practiceDays = () => state.days.length;
+  const nextMilestone = () => MILESTONES.find((m) => m.n > practiceDays()) || null;
+  const prevMilestone = () => [...MILESTONES].reverse().find((m) => m.n <= practiceDays()) || null;
+  const daysWord = (n) => (n === 1 ? "1 Übungstag" : n + " Übungstage");
+  /* Show a badge for every milestone reached since the last check. */
+  const celebrate = () => {
+    const fresh = MILESTONES.filter((m) => m.n <= practiceDays() && !state.badges.includes(m.n));
+    if (!fresh.length || document.querySelector(".badgepop")) return;
+    fresh.forEach((m) => state.badges.push(m.n)); save();
+    const top = fresh[fresh.length - 1], nx = nextMilestone();
+    const pop = h("div", "badgepop", `<div class="badgecard" role="dialog" aria-label="Neues Abzeichen">
+      <div class="bp-emoji">${top.emoji}</div><div class="bp-kicker">Neues Abzeichen!</div><h2>${esc(top.name)}</h2>
+      <p>Du hast an ${practiceDays()} Tagen geübt.</p>
+      ${nx ? `<p class="bp-next">Nächstes Abzeichen: ${nx.emoji} ${esc(nx.name)}, noch ${daysWord(nx.n - practiceDays())}.</p>` : ""}
+      <button class="primary" type="button">Juhu!</button></div>`);
+    document.body.appendChild(pop);
+    LK.sfx.chest(); confetti(pop);
+    speak(`Neues Abzeichen: ${top.name}! Du hast an ${practiceDays()} Tagen geübt.`);
+    $(".primary", pop).addEventListener("click", () => pop.remove());
   };
+
 
   /* --------------------------------------------------------------- sound */
   let ac;
@@ -129,6 +159,7 @@
     else if (screen === "sammlung") renderCollection();
     else if (screen === "ich") renderMe();
     else if (screen === "lesson") renderLesson(arg);
+    if (!nav.hidden) setTimeout(celebrate, 400);
   };
 
   /* --------------------------------------------------------------- path */
@@ -147,7 +178,7 @@
     const head = h("header", "hero", `
       <div class="greet">${state.name ? "Hallo " + esc(state.name) + "!" : "Hallo!"}</div>
       <div class="stats">
-        <span title="Serie">🔥 ${streak()}</span>
+        <span title="Übungstage">📅 ${practiceDays()}</span>
         <span title="Muscheln">🐚 ${fmt(state.shells)}</span>
         <span title="Level">⭐ Level ${lv}</span>
       </div>
@@ -296,16 +327,55 @@
     app.appendChild(h("p", "note", "Normale Sticker gibt es in jeder Kiste, seltene ab Silber, legendäre nur in goldenen Kisten (keine Fehler)."));
   };
 
+  /* --------------------------------------------------------------- stats */
+  const renderStats = (done, total) => {
+    const wrap = h("section", "mestat");
+    const d = practiceDays(), nx = nextMilestone(), pv = prevMilestone();
+    const from = pv ? pv.n : 0, pct = nx ? Math.round(((d - from) / (nx.n - from)) * 100) : 100;
+    wrap.appendChild(h("div", "daysbig", `
+      <div class="db-num">${d}</div><div class="db-lbl">${d === 1 ? "Tag" : "Tage"} geübt</div>
+      ${nx ? `<div class="db-bar"><i style="width:${Math.max(4, pct)}%"></i></div>
+      <div class="db-next">Noch <b>${daysWord(nx.n - d)}</b> bis ${nx.emoji} ${esc(nx.name)}</div>` : ""}`));
+    // badge shelf: everything earned plus the next three
+    const earned = MILESTONES.filter((m) => m.n <= d);
+    const upcoming = MILESTONES.filter((m) => m.n > d).slice(0, 3);
+    wrap.appendChild(h("h3", "mehead", "Abzeichen"));
+    wrap.appendChild(h("div", "badges", [...earned, ...upcoming].map((m) => `
+      <div class="badge${m.n <= d ? " got" : ""}${nx && m.n === nx.n ? " next" : ""}"><span class="b-emoji">${m.n <= d ? m.emoji : "🔒"}</span>
+      <span class="b-name">${esc(m.name)}</span><small>${m.n} Tage</small></div>`).join("")));
+    // calendar of the last 15 weeks, Monday first
+    const set = new Set(state.days), weeks = 15, cells = [];
+    const start = new Date(); start.setHours(12, 0, 0, 0);
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - (weeks - 1) * 7);
+    const t = today();
+    for (let w = 0; w < weeks; w++) for (let k = 0; k < 7; k++) {
+      const x = new Date(start); x.setDate(start.getDate() + w * 7 + k); const key = ymd(x);
+      cells.push(`<i class="${set.has(key) ? "on" : ""}${key === t ? " today" : ""}${key > t ? " future" : ""}" style="grid-column:${w + 2};grid-row:${k + 1}" title="${key}"></i>`);
+    }
+    const thisWeek = cells.slice(-7).filter((c) => c.includes('"on')).length;
+    wrap.appendChild(h("h3", "mehead", "Deine Übungstage"));
+    wrap.appendChild(h("div", "cal", ["Mo", "", "Mi", "", "Fr", "", "So"].map((l, k) => `<b style="grid-row:${k + 1}">${l}</b>`).join("") + cells.join("")));
+    wrap.appendChild(h("p", "note", `Diese Woche: ${thisWeek} von 7 Tagen. Jeder Tag zählt, auch wenn mal einer fehlt.`));
+    // numbers
+    const vc = (state.vocab && state.vocab.cards) || {};
+    const learned = Object.values(vc).filter((c) => c.repetitions > 0).length;
+    const solid = Object.values(vc).filter((c) => c.repetitions > 0 && c.interval > 30).length;
+    wrap.appendChild(h("div", "mestats", `
+      <div><b>${learned}</b><span>Wörter gelernt</span></div>
+      <div><b>${solid}</b><span>Wörter in Kiste 5</span></div>
+      <div><b>${done}/${total}</b><span>Mathe-Lektionen</span></div>
+      <div><b>${state.chests}</b><span>Kisten geöffnet</span></div>
+      <div><b>${Object.keys(state.stickers).length}</b><span>Sticker</span></div>
+      <div><b>${fmt(state.xp)}</b><span>XP</span></div>`));
+    return wrap;
+  };
+
   /* ------------------------------------------------------------------ me */
   const renderMe = () => {
     app.innerHTML = "";
     const done = Object.keys(state.lessons).length, total = allLessons().length;
     app.appendChild(h("header", "pagehead", `<h2>${state.name ? esc(state.name) : "Ich"}</h2><p>Level ${level(state.xp)}, ${fmt(state.xp)} XP, ${fmt(state.shells)} Muscheln</p>`));
-    const stats = h("div", "mestats", `
-      <div><b>${done}/${total}</b><span>Lektionen</span></div>
-      <div><b>${streak()}</b><span>Tage Serie</span></div>
-      <div><b>${state.chests}</b><span>Kisten</span></div>`);
-    app.appendChild(stats);
+    app.appendChild(renderStats(done, total));
     const sets = h("div", "settings");
     const toggle = (key, label, hint) => {
       const row = h("label", "row", `<span>${label}<small>${hint}</small></span><input type="checkbox" ${state.settings[key] ? "checked" : ""}>`);
@@ -330,7 +400,7 @@
 
   load();
   /* Shared API for feature modules (e.g. js/vokabeln.js). */
-  LK.app = { get state() { return state; }, save, go, render, showChest, confetti, speak, stopSpeech, today, ymd, h, $, level };
+  LK.app = { get state() { return state; }, save, go, render, showChest, confetti, speak, stopSpeech, today, ymd, h, $, level, practiceDays, nextMilestone, daysWord };
   if (LK.onAppReady) LK.onAppReady.forEach((f) => f(LK.app));
   render();
 })(window.LK);
