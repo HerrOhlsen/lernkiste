@@ -5,8 +5,8 @@
    Sync stays off while URL/KEY are empty. */
 (function (LK) {
   "use strict";
-  const URL_ = "";   // e.g. https://xxxx.supabase.co
-  const KEY = "";    // publishable (anon) key, safe to ship
+  const URL_ = "https://ltaibnkrtssoqaekjxpg.supabase.co";
+  const KEY = "sb_publishable_zJBnWLpd4071TYAFjcy3HQ_92LfoUiT"; // publishable key, meant to be public
   const CODESTORE = "lernkiste-sync";
   const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
   const enabled = () => !!(URL_ && KEY);
